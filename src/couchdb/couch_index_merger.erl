@@ -286,27 +286,6 @@ close_db(#httpdb{}) ->
 close_db(Db) ->
     couch_db:close(Db).
 
-get_ddoc(#httpdb{url = BaseUrl, headers = Headers} = HttpDb, Id) ->
-    Url = BaseUrl ++ ?b2l(Id) ++ "?revs=true",
-    case ibrowse:send_req(
-        Url, Headers, get, [], HttpDb#httpdb.ibrowse_options) of
-    {ok, "200", _RespHeaders, Body} ->
-        {ok, couch_doc:from_json_obj(?JSON_DECODE(Body))};
-    {ok, _Code, _RespHeaders, Body} ->
-        {Props} = ?JSON_DECODE(Body),
-        case {get_value(<<"error">>, Props), get_value(<<"reason">>, Props)} of
-        {not_found, _} ->
-            throw({not_found, ddoc_not_found_msg(HttpDb, Id)});
-        Error ->
-            Msg = io_lib:format("Error getting design document `~s` from "
-                "database `~s`: ~s", [Id, db_uri(HttpDb), Error]),
-            throw({error, iolist_to_binary(Msg)})
-        end;
-    {error, Error} ->
-        Msg = io_lib:format("Error getting design document `~s` from database "
-            "`~s`: ~s", [Id, db_uri(HttpDb), Error]),
-        throw({error, iolist_to_binary(Msg)})
-    end;
 get_ddoc(Db, Id) ->
     case couch_db:open_doc(Db, Id, [ejson_body]) of
     {ok, _} = Ok ->
@@ -329,8 +308,6 @@ get_group_id(DDocDbName, DDocId) when is_binary(DDocDbName) ->
     end,
     {DDocDb, DDocId}.
 
-db_uri(#httpdb{url = Url}) ->
-    db_uri(Url);
 db_uri(#db{name = Name}) ->
     Name;
 db_uri(Url) when is_binary(Url) ->
@@ -505,14 +482,6 @@ handle_skip(Params) ->
 dec_counter(0) -> 0;
 dec_counter(N) -> N - 1.
 
-
-index_folder(Mod, #simple_index_spec{database = <<"http://", _/binary>>} =
-        IndexSpec, MergeParams, _UserCtx, DDoc, Queue, _FoldFun) ->
-    http_index_folder(Mod, IndexSpec, MergeParams, DDoc, Queue);
-
-index_folder(Mod, #simple_index_spec{database = <<"https://", _/binary>>} =
-        IndexSpec, MergeParams, _UserCtx, DDoc, Queue, _FoldFun) ->
-    http_index_folder(Mod, IndexSpec, MergeParams, DDoc, Queue);
 
 index_folder(Mod, #merged_index_spec{} = IndexSpec,
         MergeParams, _UserCtx, DDoc, Queue, _FoldFun) ->

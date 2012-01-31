@@ -167,34 +167,7 @@ http_index_folder_req_details(#merged_index_spec{
 
     Body = {EJson2},
     put(from_url, Url),
-    {MergeUrl, post, Headers, ?JSON_ENCODE(Body), Options};
-
-http_index_folder_req_details(#simple_index_spec{
-        database = DbUrl, ddoc_id = DDocId, index_name = ViewName},
-        MergeParams, _DDoc) ->
-    #index_merge{
-        conn_timeout = Timeout,
-        http_params = ViewArgs,
-        extra = #view_merge{
-            keys = Keys
-        }
-    } = MergeParams,
-    {ok, #httpdb{url = Url, ibrowse_options = Options} = Db} =
-        couch_index_merger:open_db(DbUrl, nil, Timeout),
-    ViewUrl = Url ++ case ViewName of
-    <<"_all_docs">> ->
-        "_all_docs";
-    _ ->
-        ?b2l(DDocId) ++ "/_view/" ++ ?b2l(ViewName)
-    end ++ view_qs(ViewArgs, MergeParams),
-    Headers = [{"Content-Type", "application/json"} | Db#httpdb.headers],
-    put(from_url, DbUrl),
-    case Keys of
-    nil ->
-        {ViewUrl, get, [], [], Options};
-    _ ->
-        {ViewUrl, post, Headers, ?JSON_ENCODE({[{<<"keys">>, Keys}]}), Options}
-    end.
+    {MergeUrl, post, Headers, ?JSON_ENCODE(Body), Options}.
 
 
 view_details(nil, <<"_all_docs">>) ->

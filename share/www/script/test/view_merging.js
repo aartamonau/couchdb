@@ -21,10 +21,6 @@ couchTests.view_merging = function(debug) {
     return db;
   }
 
-  function dbUri(db) {
-    return CouchDB.protocol + CouchDB.host + '/' + db.name;
-  }
-
   function populateAlternated(dbs, docs) {
     var docIdx = 0;
 
@@ -203,7 +199,7 @@ couchTests.view_merging = function(debug) {
   dbC = newDb("test_db_c");
   dbD = newDb("test_db_d");
   dbE = newDb("test_db_e");
-  dbs = [dbUri(dbA), dbUri(dbB), dbUri(dbC), dbUri(dbD), dbUri(dbE)];
+  dbs = [dbA, dbB, dbC, dbD, dbE];
   resp = mergedQuery(dbs, "testfoobar/foobar");
 
   TEquals(0, resp.rows.length);
@@ -299,11 +295,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with a remote db name
-  resp2 = mergedQuery([dbA, dbUri(dbB)], "test/mapview1");
-
-  compareViewResults(resp, resp2);
-
   // now test stale=ok works
   populateAlternated(dbs, makeDocs(41, 43));
 
@@ -313,11 +304,6 @@ couchTests.view_merging = function(debug) {
   TEquals(40, resp.total_rows);
   TEquals("object", typeof resp.rows);
   TEquals(40, resp.rows.length);
-
-  // same, but with a remote db name
-  resp2 = mergedQuery([dbA, dbUri(dbB)], "test/mapview1", {stale: "ok"});
-
-  compareViewResults(resp, resp2);
 
   // test stale=update_after works
 
@@ -362,11 +348,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbUri(dbB)], "test/mapview1");
-
-  compareViewResults(resp, resp2);
-
 
   // 5 dbs, alternated keys
   dbA = newDb("test_db_a");
@@ -389,11 +370,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1");
-
-  compareViewResults(resp, resp2);
-
   // test skip=N query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"skip": 2});
   TEquals("object", typeof resp);
@@ -407,12 +383,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"skip": 2});
-
-  compareViewResults(resp, resp2);
-
   resp = mergedQuery(dbs, "test/mapview1", {"skip": 49});
   TEquals("object", typeof resp);
   TEquals(50, resp.total_rows);
@@ -422,12 +392,6 @@ couchTests.view_merging = function(debug) {
   TEquals("50", resp.rows[0].id);
 
   testKeysSorted(resp);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"skip": 49});
-
-  compareViewResults(resp, resp2);
 
   resp = mergedQuery(dbs, "test/mapview1", {"skip": 0});
   TEquals("object", typeof resp);
@@ -439,12 +403,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"skip": 0});
-
-  compareViewResults(resp, resp2);
-
   // test limit=N query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"limit": 1});
   TEquals("object", typeof resp);
@@ -453,12 +411,6 @@ couchTests.view_merging = function(debug) {
   TEquals(1, resp.rows.length);
   TEquals(1, resp.rows[0].key);
   TEquals("1", resp.rows[0].id);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"limit": 1});
-
-  compareViewResults(resp, resp2);
 
   resp = mergedQuery(dbs, "test/mapview1", {"limit": 10});
   TEquals("object", typeof resp);
@@ -472,12 +424,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"limit": 10});
-
-  compareViewResults(resp, resp2);
-
   resp = mergedQuery(dbs, "test/mapview1", {"limit": 1000});
   TEquals("object", typeof resp);
   TEquals(50, resp.total_rows);
@@ -489,12 +435,6 @@ couchTests.view_merging = function(debug) {
   TEquals("50", resp.rows[49].id);
 
   testKeysSorted(resp);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"limit": 1000});
-
-  compareViewResults(resp, resp2);
 
   // test skip=N with limit=N query parameters
   resp = mergedQuery(dbs, "test/mapview1", {"limit": 10, "skip": 10});
@@ -509,12 +449,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"limit": 10, "skip": 10});
-
-  compareViewResults(resp, resp2);
-
   // test starkey query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"startkey": 10});
   TEquals("object", typeof resp);
@@ -527,12 +461,6 @@ couchTests.view_merging = function(debug) {
   TEquals("50", resp.rows[40].id);
 
   testKeysSorted(resp);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10});
-
-  compareViewResults(resp, resp2);
 
   // test starkey query parameter with startkey_docid (same result as before)
   resp = mergedQuery(dbs, "test/mapview1",
@@ -548,12 +476,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "startkey_docid": "10"});
-
-  compareViewResults(resp, resp2);
-
   // test starkey query parameter with startkey_docid (not same result as before)
   resp = mergedQuery(dbs, "test/mapview1",
       {"startkey": 10, "startkey_docid": "11"});
@@ -568,12 +490,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "startkey_docid": "11"});
-
-  compareViewResults(resp, resp2);
-
   // test starkey query parameter with limit
   resp = mergedQuery(dbs, "test/mapview1", {"startkey": 10, "limit": 5});
   TEquals("object", typeof resp);
@@ -586,12 +502,6 @@ couchTests.view_merging = function(debug) {
   TEquals("14", resp.rows[4].id);
 
   testKeysSorted(resp);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "limit": 5});
-
-  compareViewResults(resp, resp2);
 
   // test starkey query parameter with limit and skip
   resp = mergedQuery(dbs, "test/mapview1", {"startkey": 10, "limit": 5, "skip": 2});
@@ -606,12 +516,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "limit": 5, "skip": 2});
-
-  compareViewResults(resp, resp2);
-
   // test endkey query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"endkey": 10});
   TEquals("object", typeof resp);
@@ -624,12 +528,6 @@ couchTests.view_merging = function(debug) {
   TEquals("10", resp.rows[9].id);
 
   testKeysSorted(resp);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"endkey": 10});
-
-  compareViewResults(resp, resp2);
 
   // test endkey query parameter with endkey_docid (same result as before)
   resp = mergedQuery(dbs, "test/mapview1", {"endkey": 10, "endkey_docid": "10"});
@@ -644,12 +542,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"endkey": 10, "endkey_docid": "10"});
-
-  compareViewResults(resp, resp2);
-
   // test endkey query parameter with endkey_docid (not same result as before)
   resp = mergedQuery(dbs, "test/mapview1", {"endkey": 10, "endkey_docid": "0"});
   TEquals("object", typeof resp);
@@ -663,12 +555,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"endkey": 10, "endkey_docid": "0"});
-
-  compareViewResults(resp, resp2);
-
   // test endkey query parameter with inclusive_end=false
   resp = mergedQuery(dbs, "test/mapview1",
     {"endkey": 10, "inclusive_end": "false"});
@@ -680,12 +566,6 @@ couchTests.view_merging = function(debug) {
   TEquals("1", resp.rows[0].id);
   TEquals(9, resp.rows[8].key);
   TEquals("9", resp.rows[8].id);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"endkey": 10, "inclusive_end": "false"});
-
-  compareViewResults(resp, resp2);
 
   // test endkey query parameter with limit
   resp = mergedQuery(dbs, "test/mapview1", {"endkey": 10, "limit": 3});
@@ -700,12 +580,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"endkey": 10, "limit": 3});
-
-  compareViewResults(resp, resp2);
-
   // test starkey with endkey query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"startkey": 10, "endkey": 20});
   TEquals("object", typeof resp);
@@ -719,12 +593,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "endkey": 20});
-
-  compareViewResults(resp, resp2);
-
   // test starkey query parameter with descending order
   resp = mergedQuery(dbs, "test/mapview1", {"startkey": 10, "descending": true});
   TEquals("object", typeof resp);
@@ -737,12 +605,6 @@ couchTests.view_merging = function(debug) {
   TEquals("1", resp.rows[9].id);
 
   testKeysSorted(resp, "rev");
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "descending": true});
-
-  compareViewResults(resp, resp2);
 
   // test starkey query parameter with endkey and descending order
   resp = mergedQuery(dbs, "test/mapview1",
@@ -758,12 +620,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp, "rev");
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"startkey": 10, "endkey": 5, "descending": true});
-
-  compareViewResults(resp, resp2);
-
 
   // test key query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"key": 10});
@@ -774,23 +630,11 @@ couchTests.view_merging = function(debug) {
   TEquals(10, resp.rows[0].key);
   TEquals("10", resp.rows[0].id);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"key": 10});
-
-  compareViewResults(resp, resp2);
-
   resp = mergedQuery(dbs, "test/mapview1", {"key": 1000});
   TEquals("object", typeof resp);
   TEquals(50, resp.total_rows);
   TEquals("object", typeof resp.rows);
   TEquals(0, resp.rows.length);
-
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"key": 1000});
-
-  compareViewResults(resp, resp2);
 
   // test keys=[key1, key2, key3...] query parameter
   var keys = [5, 3, 10, 39, 666, 21];
@@ -808,12 +652,6 @@ couchTests.view_merging = function(debug) {
 
   testKeysSorted(resp);
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"keys": keys});
-
-  compareViewResults(resp, resp2);
-
   // test include_docs query parameter
   resp = mergedQuery(dbs, "test/mapview1", {"include_docs": "true"});
   TEquals("object", typeof resp);
@@ -830,16 +668,10 @@ couchTests.view_merging = function(debug) {
     TEquals(resp.rows[i].id, doc._id);
   }
 
-  // same, but with remote dbs
-  resp2 = mergedQuery([dbUri(dbA), dbB, dbUri(dbC), dbD, dbE], "test/mapview1",
-    {"include_docs": "true"});
-
-  compareViewResults(resp, resp2);
-
   // test the we get the same result with a sub merge view spec
   body = {"views": {}};
   body.views[dbA.name] = "test/mapview1";
-  body.views[dbUri(dbB)] = "test/mapview1";
+  body.views[dbB.name] = "test/mapview1";
   subviewspec = {
     "views": {}
   };
@@ -908,20 +740,8 @@ couchTests.view_merging = function(debug) {
 
   compareViewResults(respFull, respMerged);
 
-  // same, but with remote dbs
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/redview1",
-    {"reduce": "false"});
-
-  compareViewResults(respFull, respMerged);
-
   respFull = dbFull.view("test/redview1", {"group": false});
   respMerged = mergedQuery(dbs, "test/redview1", {"group": false});
-
-  compareViewResults(respFull, respMerged);
-
-  // same, but with remote dbs
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/redview1",
-    {"group": false});
 
   compareViewResults(respFull, respMerged);
 
@@ -930,20 +750,8 @@ couchTests.view_merging = function(debug) {
 
   compareViewResults(respFull, respMerged);
 
-  // same, but with remote dbs
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/redview1",
-    {"group_level": 1});
-
-  compareViewResults(respFull, respMerged);
-
   respFull = dbFull.view("test/redview1", {"group": true});
   respMerged = mergedQuery(dbs, "test/redview1", {"group": true});
-
-  compareViewResults(respFull, respMerged);
-
-  // same, but with remote dbs
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/redview1",
-    {"group": true});
 
   compareViewResults(respFull, respMerged);
 
@@ -959,15 +767,6 @@ couchTests.view_merging = function(debug) {
     "correct startkey with ?group=true");
   TEquals(startkeyJson, JSON.stringify(respMerged.rows[0].key),
     "correct startkey with ?group=true");
-  compareViewResults(respFull, respMerged);
-
-  // same, but with remote dbs
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/redview1",
-    {"group": true, "startkey": startkeyJson});
-
-  TEquals(startkeyJson, JSON.stringify(respMerged.rows[0].key),
-    "correct startkey with ?group=true");
-
   compareViewResults(respFull, respMerged);
 
   // test the we get the same result with a sub merge view spec
@@ -1013,19 +812,6 @@ couchTests.view_merging = function(debug) {
 
   compareViewResults(respFull, respMerged);
 
-  // same, but with remote dbs
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/redview1",
-    {"group": true, "startkey": startkeyJson, "endkey": endkeyJson});
-
-  TEquals(startkeyJson, JSON.stringify(respMerged.rows[0].key),
-    "correct startkey with ?group=true");
-
-  i = respMerged.rows.length - 1;
-  TEquals(endkeyJson, JSON.stringify(respMerged.rows[i].key),
-    "correct endkey with ?group=true");
-
-  compareViewResults(respFull, respMerged);
-
 
   /**
    * End of tests with reduce views.
@@ -1059,18 +845,6 @@ couchTests.view_merging = function(debug) {
   populateAlternated(dbs, docs);
 
   resp = mergedQuery(dbs, "test/badredview");
-
-  TEquals(0, resp.rows.length);
-  TEquals(3, resp.errors.length);
-  TEquals(true, typeof resp.errors[0].from !== "undefined");
-  TEquals("string", typeof resp.errors[0].reason);
-  TEquals(true, typeof resp.errors[1].from !== "undefined");
-  TEquals("string", typeof resp.errors[1].reason);
-  TEquals(true, typeof resp.errors[2].from !== "undefined");
-  TEquals("string", typeof resp.errors[2].reason);
-
-  // same result with remote views
-  resp = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/badredview");
 
   TEquals(0, resp.rows.length);
   TEquals(3, resp.errors.length);
@@ -1126,12 +900,6 @@ couchTests.view_merging = function(debug) {
   TEquals(null, resp.rows[0].key);
   TEquals(30, resp.rows[0].value);
 
-  // same result with remote views
-  resp = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/badredview");
-  TEquals(1, resp.rows.length);
-  TEquals(null, resp.rows[0].key);
-  TEquals(30, resp.rows[0].value);
-
   /**
    * Test behaviour when JavaScript reduce functions have errors
    * (or throws exceptions).
@@ -1162,18 +930,6 @@ couchTests.view_merging = function(debug) {
   populateAlternated(dbs, docs);
 
   resp = mergedQuery(dbs, "test/badredview");
-
-  TEquals(0, resp.rows.length);
-  TEquals(3, resp.errors.length);
-  TEquals(true, typeof resp.errors[0].from !== "undefined");
-  TEquals("string", typeof resp.errors[0].reason);
-  TEquals(true, typeof resp.errors[1].from !== "undefined");
-  TEquals("string", typeof resp.errors[1].reason);
-  TEquals(true, typeof resp.errors[2].from !== "undefined");
-  TEquals("string", typeof resp.errors[2].reason);
-
-  // same result with remote views
-  resp = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/badredview");
 
   TEquals(0, resp.rows.length);
   TEquals(3, resp.errors.length);
@@ -1229,12 +985,6 @@ couchTests.view_merging = function(debug) {
   TEquals(true, dbC.save(bad_ddoc).ok);
 
   resp = mergedQuery(dbs, "test/badredview");
-  TEquals(1, resp.rows.length);
-  TEquals(null, resp.rows[0].key);
-  TEquals(30, resp.rows[0].value);
-
-  // same result with remote views
-  resp = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "test/badredview");
   TEquals(1, resp.rows.length);
   TEquals(null, resp.rows[0].key);
   TEquals(30, resp.rows[0].value);
@@ -1305,7 +1055,7 @@ couchTests.view_merging = function(debug) {
 
   body = {"views": {}};
   body.views[dbA.name] = "test1/mapview1";
-  body.views[dbUri(dbC)] = "test1/mapview1";
+  body.views[dbC.name] = "test1/mapview1";
   body.views[dbB.name] = "test2/mapview2";
 
   xhr = CouchDB.request("POST", "/_view_merge?stale=false", {
@@ -1348,7 +1098,7 @@ couchTests.view_merging = function(debug) {
 
   body = {"views": {}};
   body.views[dbA.name] = "test1/redview1";
-  body.views[dbUri(dbC)] = "test1/redview1";
+  body.views[dbC.name] = "test1/redview1";
   body.views[dbB.name] = "test2/redview2";
   body.rereduce = (function(keys, values, rereduce) {
     return sum(values);
@@ -1395,11 +1145,6 @@ couchTests.view_merging = function(debug) {
 
   compareViewResults(respFull, respMerged);
 
-  // same as before but with remote databases
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "_all_docs", {});
-
-  compareViewResults(respFull, respMerged);
-
   // test keys parameter, local databases only
   keys = ["1", "20", "9999", "4"];
   var sortedKeys = keys;
@@ -1407,21 +1152,6 @@ couchTests.view_merging = function(debug) {
 
   respFull = dbFull.allDocs({"keys": keys});
   respMerged = mergedQuery(dbs, "_all_docs", {"keys": keys});
-
-  TEquals("object", typeof respMerged);
-  TEquals(respFull.total_rows, respMerged.total_rows);
-  TEquals("object", typeof respMerged.rows);
-  TEquals(respFull.rows.length, respMerged.rows.length);
-
-  for (i = 0; i < respMerged.rows.length; i++) {
-    TEquals(sortedKeys[i], respMerged.rows[i].key);
-  }
-
-  compareViewResults(respFull, respMerged);
-
-  // test keys parameter, local and remote databases
-  respMerged = mergedQuery(
-    [dbUri(dbA), dbB, dbUri(dbC)], "_all_docs", {"keys": keys});
 
   TEquals("object", typeof respMerged);
   TEquals(respFull.total_rows, respMerged.total_rows);
@@ -1462,22 +1192,9 @@ couchTests.view_merging = function(debug) {
 
   compareViewResults(respFull, respMerged);
 
-  // test _all_docs with startkey and endkey, local and remote databases
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "_all_docs",
-      {"startkey": '"10"', "endkey": '"2"'});
-
-  compareViewResults(respFull, respMerged);
-
   // test _all_docs with startkey, endkey and descending, local databases only
   respFull = dbFull.allDocs({"startkey": "2", "endkey": "10", "descending": true});
   respMerged = mergedQuery(dbs, "_all_docs",
-      {"startkey": '"2"', "endkey": '"10"', "descending": true});
-
-  compareViewResults(respFull, respMerged);
-
-  // test _all_docs with startkey, endkey and descending, local and remote databases
-  respFull = dbFull.allDocs({"startkey": "2", "endkey": "10", "descending": true});
-  respMerged = mergedQuery([dbUri(dbA), dbB, dbUri(dbC)], "_all_docs",
       {"startkey": '"2"', "endkey": '"10"', "descending": true});
 
   compareViewResults(respFull, respMerged);

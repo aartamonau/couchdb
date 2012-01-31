@@ -233,7 +233,6 @@ send_debug_info(#sender_acc{debug_info_acc = DebugInfoAcc, resp = Resp}) ->
 %% {
 %%   "views": {
 %%     "localdb1": ["ddocname/viewname", ...],
-%%     "http://server2/dbname": ["ddoc/view"],
 %%     "http://server2/_view_merge": {
 %%       "views": {
 %%         "localdb3": "viewname", // local to server2
