@@ -40,7 +40,10 @@
 -define(MAX_RETRIES, 30).
 
 
-query_index(Mod, #index_merge{http_params = HttpParams, user_ctx = UserCtx} = IndexMergeParams) when HttpParams =/= nil, UserCtx =/= nil ->
+query_index(Mod,
+            #index_merge{http_params = HttpParams,
+                         user_ctx = UserCtx} = IndexMergeParams)
+  when HttpParams =/= nil, UserCtx =/= nil ->
     #index_merge{
         indexes = Indexes,
         user_ctx = UserCtx,
@@ -108,14 +111,14 @@ do_query_index(Mod, IndexMergeParams, DDoc, IndexName) ->
         DDoc, IndexName, IndexMergeParams),
     NumFolders = length(Indexes),
     QueueLessFun = fun
-        (set_view_outdated, _) ->
-            true;
-        (_, set_view_outdated) ->
-            false;
-        (revision_mismatch, _) ->
-            true;
-        (_, revision_mismatch) ->
-            false;
+        %% (set_view_outdated, _) ->
+        %%     true;
+        %% (_, set_view_outdated) ->
+        %%     false;
+        %% (revision_mismatch, _) ->
+        %%     true;
+        %% (_, revision_mismatch) ->
+        %%     false;
         ({debug_info, _Url, _Info}, _) ->
             true;
         (_, {debug_info, _Url, _Info}) ->
@@ -198,16 +201,37 @@ do_query_index(Mod, IndexMergeParams, DDoc, IndexName) ->
         end
     end.
 
+initial_heap(Iterators, RowLessFun) ->
+    LessFun =
+        fun ({Row1, _}, {Row2, _}) ->
+            RowLessFun(Row1, Row2)
+        end,
 
-clean_exit_messages(FinalReason) ->
-    receive
-    {'EXIT', _Pid, normal} ->
-        clean_exit_messages(FinalReason);
-    {'EXIT', _Pid, Reason} ->
-        clean_exit_messages(Reason)
-    after 0 ->
-        FinalReason
-    end.
+    lists:foldl(
+      fun (It, AccHeap) ->
+          couch_skew:in(iter_next(It), AccHeap)
+      end, couch_skew:new(), Iterators).
+
+do_query_index_loop(Heap, Collector) ->
+    {Row, It} = couch_skew:out(Heap),
+
+    NewCollector = process_row(Row, Collector),
+
+    NewHeap = couch_skew:in(iter_next(It), Heap),
+    do_query_index_loop(NewHeap, NewCollector).
+
+process_row() ->
+    do_something_here.
+
+%% clean_exit_messages(FinalReason) ->
+%%     receive
+%%     {'EXIT', _Pid, normal} ->
+%%         clean_exit_messages(FinalReason);
+%%     {'EXIT', _Pid, Reason} ->
+%%         clean_exit_messages(Reason)
+%%     after 0 ->
+%%         FinalReason
+%%     end.
 
 
 get_first_ddoc([], _UserCtx, _Timeout) ->
@@ -323,11 +347,6 @@ ddoc_not_found_msg(DbName, DDocId) ->
         "Design document `~s` missing in database `~s`.",
         [DDocId, db_uri(DbName)]),
     iolist_to_binary(Msg).
-
-ibrowse_error_msg(Reason) when is_atom(Reason) ->
-    to_binary(Reason);
-ibrowse_error_msg(Reason) when is_tuple(Reason) ->
-    to_binary(element(1, Reason)).
 
 ibrowse_options(#httpdb{timeout = T, url = Url}) ->
     [{inactivity_timeout, T}, {connect_timeout, infinity},
@@ -527,107 +546,10 @@ parse_error({invalid_value, Reason}) ->
 parse_error(Error) ->
     {error, ?LOCAL, to_binary(Error)}.
 
-% Fold function for remote indexes
-http_index_folder(Mod, IndexSpec, MergeParams, DDoc, Queue) ->
-    EventFun = Mod:make_event_fun(MergeParams#index_merge.http_params, Queue),
-    {Url, Method, Headers, Body, Options} = Mod:http_index_folder_req_details(
-        IndexSpec, MergeParams, DDoc),
-    {ok, Conn} = ibrowse:spawn_link_worker_process(Url),
-
-    #index_merge{
-        conn_timeout = Timeout
-    } = MergeParams,
-
-    R = ibrowse:send_req_direct(
-            Conn, Url, Headers, Method, Body,
-            [{stream_to, {self(), once}} | Options], Timeout),
-
-    case R of
-    {error, Reason} ->
-        ok = couch_view_merger_queue:queue(Queue,
-            {error, Url, ibrowse_error_msg(Reason)}),
-        ok = couch_view_merger_queue:done(Queue);
-    {ibrowse_req_id, ReqId} ->
-        receive
-        {ibrowse_async_headers, ReqId, "200", _RespHeaders} ->
-            ibrowse:stream_next(ReqId),
-            DataFun = fun() -> stream_data(ReqId) end,
-            try
-                json_stream_parse:events(DataFun, EventFun)
-            catch throw:{error, Error} ->
-                ok = couch_view_merger_queue:queue(Queue, {error, Url, Error})
-            after
-                stop_conn(Conn),
-                ok = couch_view_merger_queue:done(Queue)
-            end;
-        {ibrowse_async_headers, ReqId, Code, _RespHeaders} ->
-            Error = try
-                stream_all(ReqId, [])
-            catch throw:{error, _Error} ->
-                <<"Error code ", (?l2b(Code))/binary>>
-            end,
-            case (catch ?JSON_DECODE(Error)) of
-            {Props} when is_list(Props) ->
-                case {get_value(<<"error">>, Props),
-                    get_value(<<"reason">>, Props)} of
-                {<<"not_found">>, Reason} when
-                        Reason =/= <<"missing">>, Reason =/= <<"deleted">> ->
-                    ok = couch_view_merger_queue:queue(
-                        Queue, {error, Url, Reason});
-                {<<"not_found">>, _} ->
-                    ok = couch_view_merger_queue:queue(
-                        Queue, {error, Url, <<"not_found">>});
-                {<<"error">>, <<"revision_mismatch">>} ->
-                    ok = couch_view_merger_queue:queue(Queue, revision_mismatch);
-                {<<"error">>, <<"set_view_outdated">>} ->
-                    ?LOG_DEBUG("Got `set_view_outdated` from ~s", [Url]),
-                    ok = couch_view_merger_queue:queue(Queue, set_view_outdated);
-                JsonError ->
-                    ok = couch_view_merger_queue:queue(
-                        Queue, {error, Url, to_binary(JsonError)})
-                end;
-            _ ->
-                ok = couch_view_merger_queue:queue(
-                    Queue, {error, Url, to_binary(Error)})
-            end,
-            ok = couch_view_merger_queue:done(Queue),
-            stop_conn(Conn);
-        {ibrowse_async_response, ReqId, {error, Error}} ->
-            stop_conn(Conn),
-            ok = couch_view_merger_queue:queue(Queue, {error, Url, Error}),
-            ok = couch_view_merger_queue:done(Queue)
-        end
-    end.
-
-
 stop_conn(Conn) ->
     unlink(Conn),
     receive {'EXIT', Conn, _} -> ok after 0 -> ok end,
     catch ibrowse:stop_worker_process(Conn).
-
-
-stream_data(ReqId) ->
-    receive
-    {ibrowse_async_response, ReqId, {error, _} = Error} ->
-        throw(Error);
-    {ibrowse_async_response, ReqId, <<>>} ->
-        ibrowse:stream_next(ReqId),
-        stream_data(ReqId);
-    {ibrowse_async_response, ReqId, Data} ->
-        ibrowse:stream_next(ReqId),
-        {Data, fun() -> stream_data(ReqId) end};
-    {ibrowse_async_response_end, ReqId} ->
-        {<<>>, fun() -> throw({error, <<"more view data expected">>}) end}
-    end.
-
-
-stream_all(ReqId, Acc) ->
-    case stream_data(ReqId) of
-    {<<>>, _} ->
-        iolist_to_binary(lists:reverse(Acc));
-    {Data, _} ->
-        stream_all(ReqId, [Data | Acc])
-    end.
 
 void_event(_Ev) ->
     fun void_event/1.
