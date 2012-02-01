@@ -12,27 +12,31 @@
 
 -module(couch_skew).
 
--export([new/0, size/1, in/3, out/2, min/1]).
+-export([new/1, size/1, in/2, out/1, min/1]).
 
+-record(skew, {less_fun, tree}).
 -define(null, []).
 
-new() ->
-    ?null.
+new(LessFun) ->
+    #skew{less_fun=LessFun,
+          tree=?null}.
 
-size(?null) ->
+size(#skew{tree=?null}) ->
     0;
-size({Sz, _, _, _}) ->
+size(#skew{tree={Sz, _, _, _}}) ->
     Sz.
 
-in(X, _LessFun, ?null) ->
-    {1, X, ?null, ?null};
-in(X, LessFun, A) ->
-    merge(LessFun, {1, X, ?null, ?null}, A).
+in(X, #skew{tree=?null} = Skew) ->
+    Skew#skew{tree={1, X, ?null, ?null}};
+in(X, #skew{less_fun=LessFun, tree=A} = Skew) ->
+    NewTree = merge(LessFun, {1, X, ?null, ?null}, A),
+    Skew#skew{tree=NewTree}.
 
-out(LessFun, {_Sz, X, A, B}) ->
-    {X, merge(LessFun, A, B)}.
+out(#skew{less_fun=LessFun, tree={_Sz, X, A, B}} = Skew) ->
+    NewTree = merge(LessFun, A, B),
+    {X, Skew#skew{tree=NewTree}}.
 
-min({_, X, _, _}) ->
+min(#skew{tree={_, X, _, _}}) ->
     X.
 
 merge(_LessFun, A, ?null) ->
